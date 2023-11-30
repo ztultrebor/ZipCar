@@ -28,19 +28,20 @@
 (define BACKDROP (place-image TREE 150 11 CANVAS)) ; canvas with tree
 
 ;functions
+; WorldState -> INT
+; produce new position of car's front end after clock tick
+(check-within (position 0) CARLENGTH 1/1000000) ; checks
+(check-within (position (/ WORLDWIDTH  SPEED 2)) WORLDWIDTH 1/1000000) ; checks
+(define (position t) (/ (+ WORLDWIDTH CARLENGTH
+                        (* (- WORLDWIDTH CARLENGTH)
+                           (sin (- (/ (* 2 pi SPEED t) WORLDWIDTH) (/ pi 2)))))
+                        2))
 
 ; WorldState -> IMG
 ; shows the car's location at a specific time
-(check-expect (render 0) BACKDROP) ; checks 
-(check-expect (render 33) (place-image CAR (- (position 33) WHEELGAP) Y-OFFSET BACKDROP)) ; checks
-(check-expect (render (+ CARLENGTH 200)) BACKDROP) ; checks 
+(check-expect (render 0) (place-image CAR WHEELGAP Y-OFFSET BACKDROP)) ; checks
+(check-expect (render (/ WORLDWIDTH  SPEED 2)) (place-image CAR (- WORLDWIDTH WHEELGAP) Y-OFFSET BACKDROP)) ; checks
 (define (render t) (place-image CAR (- (position t) WHEELGAP) Y-OFFSET BACKDROP))
-
-; WorldState -> INT
-; produce the car's new position after event clock tick
-(check-expect (position 0) 0) ; checks
-(check-expect (position (/ (+ WORLDWIDTH CARLENGTH) SPEED)) (+ WORLDWIDTH CARLENGTH)) ; checks
-(define (position t) (* SPEED t))
 
 ; WorldState -> BOOL
 ; quits when car completely exits stage left
@@ -54,9 +55,10 @@
   (big-bang ws
     [to-draw render]
     [on-tick add1]
-    [stop-when finished?])
+    [stop-when finished?]
+    )
   )
 
 ; actions!
 
-(main 0)
+(main 1)
