@@ -1,10 +1,10 @@
 ;; The first three lines of this file were inserted by DrRacket. They record metadata
 ;; about the language level of this file in a form that our tools can easily process.
-#reader(lib "htdp-beginner-reader.ss" "lang")((modname zipcar.rck) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #f #t none #f () #f)))
+#reader(lib "htdp-beginner-reader.ss" "lang")((modname zipcar) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #f #t none #f () #f)))
 (require 2htdp/image)
 (require 2htdp/universe)
 
-; WorldState: distance of front of car from left side canvas
+; WorldState: clock ticks elapsed
 
 ; constants
 (define WORLDWIDTH 200) ; horizontal world size
@@ -32,31 +32,31 @@
 ; WorldState -> IMG
 ; shows the car's location at a specific time
 (check-expect (render 0) BACKDROP) ; checks 
-(check-expect (render (+ WHEELGAP 50)) (place-image CAR 50 Y-OFFSET BACKDROP)) ; checks
+(check-expect (render 33) (place-image CAR (- (position 33) WHEELGAP) Y-OFFSET BACKDROP)) ; checks
 (check-expect (render (+ CARLENGTH 200)) BACKDROP) ; checks 
-(define (render p) (place-image CAR (- p WHEELGAP) Y-OFFSET BACKDROP))
+(define (render t) (place-image CAR (- (position t) WHEELGAP) Y-OFFSET BACKDROP))
 
 ; WorldState -> INT
 ; produce the car's new position after event clock tick
-(check-expect (move 0) SPEED) ; checks
-(define (move p) (+ p SPEED))
+(check-expect (position 0) 0) ; checks
+(check-expect (position (/ (+ WORLDWIDTH CARLENGTH) SPEED)) (+ WORLDWIDTH CARLENGTH)) ; checks
+(define (position t) (* SPEED t))
 
 ; WorldState -> BOOL
 ; quits when car completely exits stage left
-(check-expect (finished? (+ WORLDWIDTH CARLENGTH SPEED)) #false) ; checks
-(check-expect (finished? (+ WORLDWIDTH CARLENGTH SPEED 1)) #true) ; checks
-(define (finished? p) (> p (+ WORLDWIDTH CARLENGTH SPEED)))
+(check-expect (finished? (/ WORLDWIDTH SPEED)) #false) ; checks
+(check-expect (finished? (/ (+ WORLDWIDTH CARLENGTH 1) SPEED)) #true) ; checks
+(define (finished? t) (> (position t) (+ WORLDWIDTH CARLENGTH)))
 
 ; WorldState -> WorldState
 ; launches the program from some initial state 
 (define (main ws)
   (big-bang ws
     [to-draw render]
-    [on-tick move]
+    [on-tick add1]
     [stop-when finished?])
   )
 
-
 ; actions!
 
-(main -20)
+(main 0)
