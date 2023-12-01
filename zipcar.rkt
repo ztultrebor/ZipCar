@@ -30,26 +30,20 @@
 ;functions
 ; WorldState: clock ticks elapsed
 
-; WorldState -> INT
-; produce new position of car's front end after clock tick
-(check-within (position 0) CARLENGTH 1/1000000) ; checks
-(check-within (position (/ WORLDWIDTH  SPEED 2)) WORLDWIDTH 1/1000000) ; checks
-(define (position t) (/ (+ WORLDWIDTH CARLENGTH
-                           (* (- WORLDWIDTH CARLENGTH)
-                              (sin (- (/ (* 2 pi SPEED t) WORLDWIDTH) (/ pi 2)))))
-                        2))
-
 ; WorldState -> IMG
 ; shows the car's location at a specific time
 (check-expect (render 0) (place-image CAR WHEELGAP Y-OFFSET BACKDROP)) ; checks
 (check-expect (render (/ WORLDWIDTH  SPEED 2)) (place-image CAR (- WORLDWIDTH WHEELGAP) Y-OFFSET BACKDROP)) ; checks
 (define (render t) (place-image CAR (- (position t) WHEELGAP) Y-OFFSET BACKDROP))
 
-; WorldState -> BOOL
-; quits after CYCLES cycles
-(check-expect (finished? (/ (* WORLDWIDTH CYCLES) SPEED)) #true) ; checks
-(check-expect (finished? (- (/ (* WORLDWIDTH CYCLES) SPEED) 1)) #false) ; checks
-(define (finished? t) (>= (/ (* SPEED t) WORLDWIDTH) CYCLES))
+; WorldState -> INT
+; produce new position of car's front end after clock tick
+(check-within (position 0) CARLENGTH 1/1000000) ; checks
+(check-within (position (/ WORLDWIDTH  SPEED 2)) WORLDWIDTH 1/1000000) ; checks
+(define (position t) (/ (+ WORLDWIDTH CARLENGTH
+                           (* (- WORLDWIDTH CARLENGTH)
+                              (sin (- (/ (* 2 pi SPEED t) WORLDWIDTH)
+                                      (/ pi 2))))) 2))
 
 ; WorldState Number Number String -> WorldState
 ; places car at x-mouse if given me is "button-down" 
@@ -57,11 +51,16 @@
 (check-within (hyper (position 42) 20 20 "button-down") (/ (* WORLDWIDTH (+ (/ pi 2) (asin (/ (- (* 2 20) WORLDWIDTH WHEELGAP) (- WORLDWIDTH CARLENGTH)))))2 pi SPEED) 1/1000000)
 (check-within (hyper (position 42) 20 20 "move") (position 42) 1/1000000)
 (define (hyper t x-mouse y-mouse me)
-  (if (and (string=? me "button-down") (<= x-mouse WORLDWIDTH))
-      (if (> x-mouse CARLENGTH) (inverse x-mouse 0 (/ WORLDWIDTH  SPEED 2))
-          (inverse CARLENGTH 0 (/ WORLDWIDTH  SPEED 2)))
-      t)
-  ) 
+  (if (string=? me "button-down")
+      (inverse (min (max x-mouse CARLENGTH) WORLDWIDTH)
+               0 (/ WORLDWIDTH SPEED 2))
+      t))
+
+; WorldState -> BOOL
+; quits after CYCLES cycles
+(check-expect (finished? (/ (* WORLDWIDTH CYCLES) SPEED)) #true) ; checks
+(check-expect (finished? (- (/ (* WORLDWIDTH CYCLES) SPEED) 1)) #false) ; checks
+(define (finished? t) (>= (/ (* SPEED t) WORLDWIDTH) CYCLES))
 
 ; (NUMBER, WorldState, WorldState) -> WorldState
 ; get the value of t such that f(t) = x
@@ -69,9 +68,12 @@
 (check-within (inverse 50 0 (/ WORLDWIDTH  SPEED 2)) (/ 50  SPEED 2) 1/2) ; checks
 (check-within (inverse 24 0 (/ WORLDWIDTH  SPEED 2)) (/ 24  SPEED 2) 1/2) ; checks
 (define (inverse x min-t max-t)
-  (if (< (abs (- (position (/ (+ min-t max-t) 2)) x)) 1/2) (round (/ (+ min-t max-t) 2))
-      (if (> (position (/ (+ min-t max-t) 2)) x) (inverse x min-t (/ (+ min-t max-t) 2))
-          (inverse x (/ (+ min-t max-t) 2) max-t))))
+  (cond
+    [(< (abs (- (position (/ (+ min-t max-t) 2)) x)) 1/2)
+     (round (/ (+ min-t max-t) 2))]
+    [(> (position (/ (+ min-t max-t) 2)) x)
+     (inverse x min-t (/ (+ min-t max-t) 2))]
+    [else  (inverse x (/ (+ min-t max-t) 2) max-t)]))
 
 ; WorldState -> WorldState
 ; launches the program from some initial state 
