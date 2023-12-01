@@ -12,7 +12,7 @@
 (define CARLENGTH (* 2 WHEELGAP))
 (define Y-OFFSET (- WORLDHEIGHT (* 2 WHEELRADIUS))) ; y-pos of car's center
 (define SPEED 3) ; pixels per tick
-(define CYCLES 2); stops after this many
+(define CYCLES 3); stops after this many
 
 (define CANVAS (empty-scene WORLDWIDTH WORLDHEIGHT))
 (define BOUGHS (circle 8 "solid" "green"))
@@ -51,12 +51,35 @@
 (check-expect (finished? (- (/ (* WORLDWIDTH CYCLES) SPEED) 1)) #false) ; checks
 (define (finished? t) (>= (/ (* SPEED t) WORLDWIDTH) CYCLES))
 
+; WorldState Number Number String -> WorldState
+; places car at x-mouse if given me is "button-down" 
+(check-within  (hyper (position 21) 20 20 "enter") (position 21) 1/1000000)
+(check-within (hyper (position 42) 20 20 "button-down") (/ (* WORLDWIDTH (+ (/ pi 2) (asin (/ (- (* 2 20) WORLDWIDTH WHEELGAP) (- WORLDWIDTH CARLENGTH)))))2 pi SPEED) 1/1000000)
+(check-within (hyper (position 42) 20 20 "move") (position 42) 1/1000000)
+(define (hyper t x-mouse y-mouse me)
+  (if (and (string=? me "button-down") (<= x-mouse WORLDWIDTH))
+      (if (> x-mouse CARLENGTH) (inverse x-mouse 0 (/ WORLDWIDTH  SPEED 2))
+          (inverse CARLENGTH 0 (/ WORLDWIDTH  SPEED 2)))
+      t)
+  ) 
+
+; (NUMBER, WorldState, WorldState) -> WorldState
+; get the value of t such that f(t) = x
+(check-within (inverse WHEELGAP 0 (/ WORLDWIDTH  SPEED 2)) 0 1/2) ; checks
+(check-within (inverse 50 0 (/ WORLDWIDTH  SPEED 2)) (/ 50  SPEED 2) 1/2) ; checks
+(check-within (inverse 24 0 (/ WORLDWIDTH  SPEED 2)) (/ 24  SPEED 2) 1/2) ; checks
+(define (inverse x min-t max-t)
+  (if (< (abs (- (position (/ (+ min-t max-t) 2)) x)) 1/2) (round (/ (+ min-t max-t) 2))
+      (if (> (position (/ (+ min-t max-t) 2)) x) (inverse x min-t (/ (+ min-t max-t) 2))
+          (inverse x (/ (+ min-t max-t) 2) max-t))))
+
 ; WorldState -> WorldState
 ; launches the program from some initial state 
 (define (main ws)
   (big-bang ws
     [to-draw render]
     [on-tick add1]
+    [on-mouse hyper]
     [stop-when finished?]
     )
   )
