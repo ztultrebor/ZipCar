@@ -24,56 +24,12 @@
 (define CABIN (rectangle WHEELGAP WHEELRADIUS "solid" "red"))
 (define FRAME (above CABIN PANELS)) ; pretty parts
 (define CAR (underlay/xy FRAME WHEELRADIUS (* 2 WHEELRADIUS) CHASSIS)) ; the whole car
+(define DOPPELAUTO (overlay/xy CAR WORLDWIDTH 0 CAR))
 (define BACKDROP (place-image TREE 150 11 CANVAS)) ; canvas with tree
 
 
 ;functions
 ; WorldState: clock ticks elapsed
-
-; WorldState -> IMG
-; shows the car's location at a specific time
-(check-expect (render 0) (place-image CAR WHEELGAP Y-OFFSET BACKDROP)) ; checks
-(check-expect (render (/ WORLDWIDTH  SPEED 2)) (place-image CAR (- WORLDWIDTH WHEELGAP) Y-OFFSET BACKDROP)) ; checks
-(define (render t) (place-image CAR (- (position t) WHEELGAP) Y-OFFSET BACKDROP))
-
-; WorldState -> INT
-; produce new position of car's front end after clock tick
-(check-within (position 0) CARLENGTH 1/1000000) ; checks
-(check-within (position (/ WORLDWIDTH  SPEED 2)) WORLDWIDTH 1/1000000) ; checks
-(define (position t) (/ (+ WORLDWIDTH CARLENGTH
-                           (* (- WORLDWIDTH CARLENGTH)
-                              (sin (- (/ (* 2 pi SPEED t) WORLDWIDTH)
-                                      (/ pi 2))))) 2))
-
-; WorldState Number Number String -> WorldState
-; places car at x-mouse if given me is "button-down" 
-(check-within  (hyper (position 21) 20 20 "enter") (position 21) 1/1000000)
-(check-within (hyper (position 42) 20 20 "button-down") (/ (* WORLDWIDTH (+ (/ pi 2) (asin (/ (- (* 2 20) WORLDWIDTH WHEELGAP) (- WORLDWIDTH CARLENGTH)))))2 pi SPEED) 1/1000000)
-(check-within (hyper (position 42) 20 20 "move") (position 42) 1/1000000)
-(define (hyper t x-mouse y-mouse me)
-  (if (string=? me "button-down")
-      (inverse (min (max x-mouse CARLENGTH) WORLDWIDTH)
-               0 (/ WORLDWIDTH SPEED 2))
-      t))
-
-; WorldState -> BOOL
-; quits after CYCLES cycles
-(check-expect (finished? (/ (* WORLDWIDTH CYCLES) SPEED)) #true) ; checks
-(check-expect (finished? (- (/ (* WORLDWIDTH CYCLES) SPEED) 1)) #false) ; checks
-(define (finished? t) (>= (/ (* SPEED t) WORLDWIDTH) CYCLES))
-
-; (NUMBER, WorldState, WorldState) -> WorldState
-; get the value of t such that f(t) = x
-(check-within (inverse WHEELGAP 0 (/ WORLDWIDTH  SPEED 2)) 0 1/2) ; checks
-(check-within (inverse 50 0 (/ WORLDWIDTH  SPEED 2)) (/ 50  SPEED 2) 1/2) ; checks
-(check-within (inverse 24 0 (/ WORLDWIDTH  SPEED 2)) (/ 24  SPEED 2) 1/2) ; checks
-(define (inverse x min-t max-t)
-  (cond
-    [(< (abs (- (position (/ (+ min-t max-t) 2)) x)) 1/2)
-     (round (/ (+ min-t max-t) 2))]
-    [(> (position (/ (+ min-t max-t) 2)) x)
-     (inverse x min-t (/ (+ min-t max-t) 2))]
-    [else  (inverse x (/ (+ min-t max-t) 2) max-t)]))
 
 ; WorldState -> WorldState
 ; launches the program from some initial state 
@@ -85,6 +41,74 @@
     [stop-when finished?]
     )
   )
+
+; WorldState -> IMG
+; shows the car's location at a specific time
+(check-expect (render 0) (place-image DOPPELAUTO 0 Y-OFFSET BACKDROP)) ; checks
+(check-expect (render (/ WORLDWIDTH  SPEED 2)) (place-image DOPPELAUTO 0 Y-OFFSET BACKDROP)) ; checks
+(check-expect (render (/ WORLDWIDTH  SPEED)) (place-image DOPPELAUTO 0 Y-OFFSET BACKDROP)) ; checks
+(define (render t) (place-image DOPPELAUTO (- (position t) WHEELGAP) Y-OFFSET BACKDROP))
+
+; WorldState -> INT
+; produce new position of car's front end after clock tick
+; p(t) = (w (1 + sin(2 pi v t / w - pi / 2)) + l) / 2
+; p(0) = (w (1 + sin(- pi / 2)) + l) / 2 = (w (1 - 1) + l) / 2 = l / 2
+; p(w / 2 v) = (w (1 + sin(2 pi v w / 2 v w - pi / 2)) + l) / 2
+;            = (w (1 + sin(pi - pi / 2)) + l) / 2  = (w (1 + sin(pi / 2)) + l) / 2
+;            = (w (1 +1) + l) / 2 = (2 w + l) / 2 = w + l / 2
+(check-expect (position 0) (/ CARLENGTH 2)) ; checks
+(check-expect (position (/ WORLDWIDTH SPEED 4)) (/ (+ WORLDWIDTH CARLENGTH) 2)) ; checks
+(check-expect (position (/ WORLDWIDTH SPEED 2)) (+ WORLDWIDTH (/ CARLENGTH 2))) ; checks
+(check-expect (position (/ (* 3 WORLDWIDTH) SPEED 4)) (/ (+ WORLDWIDTH CARLENGTH) 2)) ; checks
+(check-expect (position (/ WORLDWIDTH SPEED)) (/ CARLENGTH 2)) ; checks
+(define (position t) (round (/ (+ (* WORLDWIDTH (+ 1 (sin (- (/ (* 2 pi SPEED t) WORLDWIDTH)
+                                                             (/ pi 2))))) CARLENGTH) 2)))
+
+; WorldState Number Number String -> WorldState
+; move car center point to x-mouse on mouse click
+(check-expect  (hyper 200/6 20 20 "enter") 200/6) ; checks
+(check-expect (hyper 200/6 20 20 "move") 200/6)  ; checks
+(check-expect (hyper 200/6 200 20 "button-down") (inverse (+ (modulo (+ 200 (/ WORLDWIDTH 2)) WORLDWIDTH) WHEELGAP) 0 (/ WORLDWIDTH SPEED 4)))  ; checks
+(check-expect (hyper 200/6 205 20 "button-down") (inverse (+ (modulo (+ 205 (/ WORLDWIDTH 2)) WORLDWIDTH) WHEELGAP) 0 (/ WORLDWIDTH SPEED 4)))  ; checks
+(define (hyper t x-mouse y-mouse me)
+  (cond
+    [(not (string=? me "button-down")) t]
+    [(> x-mouse (/ WORLDWIDTH 2))
+     (inverse (+ (modulo (+ x-mouse (/ WORLDWIDTH 2)) (+ WORLDWIDTH 1))
+                 WHEELGAP) 0 (/ WORLDWIDTH SPEED 4))]
+    [else
+     (inverse (+ (modulo (+ x-mouse (/ WORLDWIDTH 2)) (+ WORLDWIDTH 1))
+                 WHEELGAP) (/ (* 3 WORLDWIDTH) SPEED 4) (/ WORLDWIDTH SPEED 2))]
+    ))
+
+; WorldState -> BOOL
+; quits after CYCLES cycles
+(check-expect (finished? (/ (* WORLDWIDTH CYCLES) SPEED)) #true) ; checks
+(check-expect (finished? (- (/ (* WORLDWIDTH CYCLES) SPEED) 1)) #false) ; checks
+(define (finished? t) (>= (/ (* SPEED t) WORLDWIDTH) CYCLES))
+
+; (NUMBER, WorldState, WorldState) -> WorldState
+; get the value of t such that f(t) = x
+; p(0) = (w (1 + sin(2 pi v 0 / w - pi / 2)) + l) / 2 = p(t) = (w (1 + sin(- pi / 2)) + l) / 2
+;      = (w (1 - 1) + l) / 2 = l / 2
+; p(w/4v) = (w (1 + sin(2 pi v (w / 4 v) / w - pi / 2)) + l) / 2 = (w (1 + sin(pi / 2 - pi / 2)) + l) / 2
+;         = (w (1 + sin(0)) + l) / 2 = (w + l) / 2
+; p(w/2v) = (w (1 + sin(2 pi v (w / 2 v) / w - pi / 2)) + l) / 2 = (w (1 + sin(pi - pi / 2)) + l) / 2
+;         = (w (1 + sin(pi / 2)) + l) / 2 = (w (1 + 1) + l) / 2 = w + l / 2 
+; p(3w/4v) = (w (1 + sin(2 pi v (3 w / 4 v) / w - pi / 2)) + l) / 2 = (w (1 + sin(3 pi / 2 - pi / 2)) + l) / 2
+;         = (w (1 + sin(pi)) + l) / 2 = (w (1 - 0) + l) / 2 = (w + l) / 2
+(check-within (inverse WHEELGAP 0 (/ WORLDWIDTH SPEED 2)) 0 1/2) ; checks
+(check-within (inverse (+ WHEELGAP (/ WORLDWIDTH 2)) 0 (/ WORLDWIDTH SPEED 2)) (/ WORLDWIDTH SPEED 4) 1/2) ; checks
+(check-within (inverse (+ WHEELGAP WORLDWIDTH) 0 (/ WORLDWIDTH SPEED 2)) (/ WORLDWIDTH SPEED 2) 1/2) ; checks
+(check-within (inverse (+ WHEELGAP (/ WORLDWIDTH 2)) (/ WORLDWIDTH SPEED 2) (/ WORLDWIDTH SPEED)) (/ (* 3 WORLDWIDTH) SPEED 4) 1/2) ; checks
+(check-within (inverse WHEELGAP (/ WORLDWIDTH SPEED 2) (/ WORLDWIDTH SPEED)) (/ WORLDWIDTH SPEED) 1/2) ; checks
+(define (inverse x min-t max-t)
+  (cond
+    [(< (abs (- (position (/ (+ min-t max-t) 2)) x)) 1/16)
+     (round (/ (+ min-t max-t) 2))]
+    [(> (position (/ (+ min-t max-t) 2)) x)
+     (inverse x min-t (/ (+ min-t max-t) 2))]
+    [else  (inverse x (/ (+ min-t max-t) 2) max-t)]))
 
 
 ; actions!
